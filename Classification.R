@@ -3,8 +3,8 @@ setwd("C:/path/to/all/r/files")
 source("listRules.r")
 source("rulePredictClass.r")
 
-# Weighted F1 Score
-w_f1 <- function(real, pred){
+# Macro F1 Score
+m_f1 <- function(real, pred){
 	m <- table(pred, real)
 	f1 <- NULL
 	prec <- NULL
@@ -15,8 +15,8 @@ w_f1 <- function(real, pred){
 		f1 <- c(f1, (2 * prec[i] * recall[i]) / (prec[i] + recall[i]))
 	}
 	f1[is.nan(f1)] <- 0
-	wf1 <- mean(f1)
-	return(wf1)
+	mf1 <- mean(f1)
+	return(mf1)
 }
 
 # Load the required libraries
@@ -39,7 +39,7 @@ test <- iris[-part, ]
 
 # Create data partition for 5-fold cross-validation over the training set
 innercv <- createFolds(tr$Species, k = 5, list = TRUE, returnTrain = TRUE)
-w_f1_inner <- NULL
+m_f1_inner <- NULL
 
 # Perform cross-validation
 for (i in 1:5){
@@ -51,22 +51,22 @@ for (i in 1:5){
 	
 		rf <- randomForest(Species ~ ., data = tr_inner, ntree = hyperparams[j, 1], maxnodes = hyperparams[j, 2])
 		pred <- predict(rf, newdata = subset(test_inner, select = -c(Species)))
-		w_f1_inner <- rbind(w_f1_inner, c(hyperparams[j, 1], hyperparams[j, 2], w_f1(test_inner$Species, pred)))
+		m_f1_inner <- rbind(m_f1_inner, c(hyperparams[j, 1], hyperparams[j, 2], m_f1(test_inner$Species, pred)))
 	
 	}
 
 }
 
 # Find the most accurate hyperparameter combination
-w_f1_inner <- as.data.frame(w_f1_inner)
-w_f1_inner$V1 <- as.factor(w_f1_inner$V1)
-acc_inner$V2 <- as.factor(w_f1_inner$V2)
-w_f1_by_hyper <- aggregate(V3 ~ V1 + V2, data = w_f1_inner, FUN = "mean")
+m_f1_inner <- as.data.frame(m_f1_inner)
+m_f1_inner$V1 <- as.factor(m_f1_inner$V1)
+m_f1_inner$V2 <- as.factor(m_f1_inner$V2)
+m_f1_by_hyper <- aggregate(V3 ~ V1 + V2, data = m_f1_inner, FUN = "mean")
 
 # Train a random forest model with the selected hyperparameter combination
 rf <- randomForest(Species ~ ., data = tr,
-				   ntree = as.numeric(as.character(w_f1_by_hyper[which.max(w_f1_by_hyper$V3), 1])),
-				   maxnodes = as.numeric(as.character(w_f1_by_hyper[which.max(w_f1_by_hyper$V3), 2])))
+				   ntree = as.numeric(as.character(m_f1_by_hyper[which.max(m_f1_by_hyper$V3), 1])),
+				   maxnodes = as.numeric(as.character(m_f1_by_hyper[which.max(m_f1_by_hyper$V3), 2])))
 
 # Generate matrix A and cost vector c (cost)
 pred_tr <- predict(rf, newdata = subset(tr, select = -c(Species)), nodes = TRUE, predict.all = TRUE)
